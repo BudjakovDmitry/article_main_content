@@ -10,13 +10,14 @@ class Page():
     def __init__(self):
         self.headers={}
         self.html_text = None
-        self.body = None
+        self.html_tree = None
+        self.text_content = None
 
-    def _conv_text_to_html(self):
+    def _get_html_tree(self):
         tree = html.fromstring(self.html_text)
-        self.body = tree.xpath('//body')[0]
+        self.html_tree = tree.xpath('//body')[0]
 
     def get(self, url):
         resp = requests.get(url, headers=self.headers)
         self.html_text = resp.text
-        self._conv_text_to_html()
+        self._get_html_tree()
