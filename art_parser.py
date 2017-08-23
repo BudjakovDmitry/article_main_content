@@ -8,7 +8,9 @@ https://lenta.ru
 """
 
 import requests
+import os
 from lxml import html
+from uuid import uuid4
 
 
 # TODO разобраться, от чего должен наследоваться этот класс (object?)
@@ -44,7 +46,7 @@ class Tree():
         parent_blocks.sort(key=lambda k: k['text_len'], reverse=True)
         main_blocks = self.root.xpath(parent_blocks[0]['xpath'])
         # content = self.root.xpath(main_blocks['xpath'])[0].text_content()
-        self.find_main_text(main_blocks)
+        return self.find_main_text(main_blocks)
 
     def find_main_text(self, main_blocks):
         text_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
@@ -54,8 +56,7 @@ class Tree():
             for item in iterator:
                 if item.text is not None and item.tag in text_tags:
                     text.append({'tag': item.tag, 'text': item.text})
-        for i in text:
-            print(i['tag'], i['text'])
+        return text
 
     def calc_text_len(self, text_content):
         total_text_len = 0
@@ -86,10 +87,30 @@ class Page():
 
     def extract_content(self):
         self.tree.find_content_nodes()
-        self.tree.find_main_blocks()
-        # self.tree.group_content_by_blocks()
+        return self.tree.find_main_blocks()
+
+
+class Text():
+
+    def __init__(self, text):
+        self.text = text
+
+    def save(self):
+        cwd = os.getcwd()
+        folder = uuid4().hex
+        path = os.path.join(cwd, folder)
+        if not os.path.exists(path):
+            os.makedirs(path)
+            path = os.path.join(path, 'art.txt')
+        f = open(path, 'w')
+        for i in self.text:
+            f.write(i['text'])
+        f.close()
+
 
 if __name__ == '__main__':
     page = Page()
     page.get('https://lenta.ru/articles/2017/08/23/reddebt/')
-    page.extract_content()
+    content = page.extract_content()
+    text = Text(content)
+    text.save()
