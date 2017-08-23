@@ -25,31 +25,37 @@ class Tree():
         tree = html.fromstring(text_html)
         self.root = tree.xpath('//body')[0]
 
-    def find_main_content(self):
-        # На первой итерации считаем, что весь контент находится в блоках <p>..</p>
-        iterator = self.root.getiterator('p')
-        self.text_content = [{'text': i.text, 'node': i} for i in iterator if i.text]
+    def find_content_nodes(self, node_name='p'):
+        # На первой итерации считаем, что весь контент статьи находится в блоках <p>..</p>
+        iterator = self.root.getiterator(node_name)
+        self.text_content = [{'text': it.text, 'node': it} for it in iterator if it.text]
 
-    def group_content_by_blocks(self):
+    def find_main_blocks(self):
         parent_blocks = list()
         for i in self.text_content:
             parent = i['node'].getparent()
             parent_discr = {'tag': parent.tag, 'attrib': parent.attrib}
             if parent_discr not in parent_blocks:
-                # parent_discr['text_len'] = len(i['text'])
                 parent_blocks.append(parent_discr)
-            # else:
-                # index = parent_blocks.index(parent_discr)
-                # parent_blocks[index]['text_len'] += len(i['text'])
         for block in parent_blocks:
             xpath = '//{0}[@class="{1}"]'.format(block['tag'], block['attrib']['class'])
             block['xpath'] = xpath
             block['text_len'] = len(self.root.xpath(xpath)[0].text_content())
         parent_blocks.sort(key=lambda k: k['text_len'], reverse=True)
-        main_block = parent_blocks[0]
-        content = self.root.xpath(main_block['xpath'])[0].text_content()
-        print(content)
+        main_blocks = self.root.xpath(parent_blocks[0]['xpath'])
+        # content = self.root.xpath(main_blocks['xpath'])[0].text_content()
+        self.find_main_text(main_blocks)
 
+    def find_main_text(self, main_blocks):
+        text_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+        text = list()
+        for block in main_blocks:
+            iterator = block.getiterator()
+            for item in iterator:
+                if item.text is not None and item.tag in text_tags:
+                    text.append({'tag': item.tag, 'text': item.text})
+        for i in text:
+            print(i['tag'], i['text'])
 
     def calc_text_len(self, text_content):
         total_text_len = 0
@@ -79,10 +85,11 @@ class Page():
         self.tree.get_html_root(self.text_html)
 
     def extract_content(self):
-        self.tree.find_main_content()
-        self.tree.group_content_by_blocks()
+        self.tree.find_content_nodes()
+        self.tree.find_main_blocks()
+        # self.tree.group_content_by_blocks()
 
 if __name__ == '__main__':
     page = Page()
-    page.get('https://www.gazeta.ru/politics/2017/08/21_a_10845320.shtml')
+    page.get('https://lenta.ru/articles/2017/08/23/reddebt/')
     page.extract_content()
