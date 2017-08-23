@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+"""
+https://ria.ru,
+http://tass.ru,
+https://rg.ru,
+https://www.gazeta.ru,
+https://lenta.ru
+"""
 
 import requests
 from lxml import html
@@ -9,22 +16,40 @@ from lxml import html
 class Tree():
 
     def __init__(self):
-        self.tree = None
         self.root = None
         self.total_text_length = 0
         self.dom = dict()
+        self.text_content = None
 
-    def get_html_tree(self, text_html):
+    def get_html_root(self, text_html):
         tree = html.fromstring(text_html)
         self.root = tree.xpath('//body')[0]
 
-    def find_text_content(self):
+    def find_main_content(self):
+        # На первой итерации считаем, что весь контент находится в блоках <p>..</p>
         iterator = self.root.getiterator('p')
-        text_content = [{'text': i.text, 'node': i} for i in iterator if i.text]
-        for i in text_content:
+        self.text_content = [{'text': i.text, 'node': i} for i in iterator if i.text]
+
+    def group_content_by_blocks(self):
+        parent_blocks = list()
+        for i in self.text_content:
             parent = i['node'].getparent()
-            i['parent_attr'] = parent.attrib
-        print('g')
+            parent_discr = {'tag': parent.tag, 'attrib': parent.attrib}
+            if parent_discr not in parent_blocks:
+                # parent_discr['text_len'] = len(i['text'])
+                parent_blocks.append(parent_discr)
+            # else:
+                # index = parent_blocks.index(parent_discr)
+                # parent_blocks[index]['text_len'] += len(i['text'])
+        for block in parent_blocks:
+            xpath = '//{0}[@class="{1}"]'.format(block['tag'], block['attrib']['class'])
+            block['xpath'] = xpath
+            block['text_len'] = len(self.root.xpath(xpath)[0].text_content())
+        parent_blocks.sort(key=lambda k: k['text_len'], reverse=True)
+        main_block = parent_blocks[0]
+        content = self.root.xpath(main_block['xpath'])[0].text_content()
+        print(content)
+
 
     def calc_text_len(self, text_content):
         total_text_len = 0
@@ -40,7 +65,6 @@ class Tree():
         for i in text_content:
             if i['tag'] == rating[0]:
                 print(i['text'])
-        print('ssf')
 
 class Page():
 
@@ -52,12 +76,13 @@ class Page():
     def get(self, url):
         resp = requests.get(url, headers=self.headers)
         self.text_html = resp.text
-        self.tree.get_html_tree(self.text_html)
+        self.tree.get_html_root(self.text_html)
 
     def extract_content(self):
-        self.tree.find_text_content()
+        self.tree.find_main_content()
+        self.tree.group_content_by_blocks()
 
 if __name__ == '__main__':
     page = Page()
-    page.get('https://rg.ru/2017/08/22/reg-cfo/kalashnikov-pokazal-neletalnoe-oruzhie-novgo-pokoleniia.html')
+    page.get('https://www.gazeta.ru/politics/2017/08/21_a_10845320.shtml')
     page.extract_content()
