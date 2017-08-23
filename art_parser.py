@@ -12,6 +12,7 @@ import os
 from lxml import html
 from uuid import uuid4
 
+text_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
 # TODO разобраться, от чего должен наследоваться этот класс (object?)
 # TODO добавить описания модуля, классов и методов
@@ -49,7 +50,6 @@ class Tree():
         return self.find_main_text(main_blocks)
 
     def find_main_text(self, main_blocks):
-        text_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
         text = list()
         for block in main_blocks:
             iterator = block.getiterator()
@@ -95,6 +95,19 @@ class Text():
     def __init__(self, text):
         self.text = text
 
+    def format(self):
+        # Блоки отбиваем пустой строкой
+        for block in self.text:
+            words = block['text'].split()
+            total_len = 0
+            for i, word in enumerate(words):
+                total_len += len(word) + 1
+                if total_len > 80:
+                    words[i] = '\n' + words[i]
+                    total_len = len(word) + 1
+            block['text'] = ' '.join(words) + '\n\n'
+
+
     def save(self):
         cwd = os.getcwd()
         folder = uuid4().hex
@@ -102,6 +115,7 @@ class Text():
         if not os.path.exists(path):
             os.makedirs(path)
             path = os.path.join(path, 'art.txt')
+        self.format()
         f = open(path, 'w')
         for i in self.text:
             f.write(i['text'])
@@ -110,7 +124,7 @@ class Text():
 
 if __name__ == '__main__':
     page = Page()
-    page.get('https://lenta.ru/articles/2017/08/23/reddebt/')
+    page.get('https://www.gazeta.ru/politics/2017/08/22_a_10845614.shtml')
     content = page.extract_content()
     text = Text(content)
     text.save()
