@@ -1,6 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-https://rg.ru,
+Программа представляет собой утилиту командной строки. Она принимает на вход URL, делает запрос по указанному адресу и
+извлекает со страницы основной контент.
+
+Пример вызова
+
+c:\users\user>python art_parser.py --url https://news.ru
+
+или более короткий вариант
+
+c:\users\user>python art_parser.py -u https://news.ru
+
+Результат сохраняется в текстовый файл.
+Расположение папки, куда складываются результаты, указывается в файле config.ini. В этом файле достаточно указать
+желаемую папку. Если такой папки не существует, программа создаст её.
 """
 
 import requests
@@ -20,7 +33,7 @@ content = {
     # 'text_includes_header': False,
     'full_text': ''}
 
-# TODO проверить описание всех методов и классов
+# TODO удалить все лишние комментарии
 class Tree:
     """
     Класс, моделирующий DOM-дерево страницы
@@ -47,7 +60,7 @@ class Tree:
         Находит в теле страницы блоки, которые содержат основной контент
         :param node_name: название тега, в котором содержится текст статьи
         """
-        # На первой итерации считаем, что весь контент статьи находится в блоках <p>..</p>
+        # считаем, что весь контент статьи находится в блоках <p>..</p>
         iterator = self.body.getiterator(node_name)
         self.content_blocks = [{'text': it.text_content(), 'node': it} for it in iterator if it.text_content()]
 
@@ -93,6 +106,10 @@ class Tree:
         content['title'] = title.text_content()
 
     def get_art_text(self, block):
+        """
+        Возвращает текстовое содержимое, которое содержится в потомках (с разбиением по блокам)
+        :param block: блок, содержащий в себе контейнеры с текстом статьи
+        """
         for container in block.getchildren():
             # try нужна для того чтобы исключить блоки с html-комментариями. Из-за них парсер падает.
             try:
@@ -116,11 +133,22 @@ class Tree:
         content['text_blocks'].insert(0, headers)
 
     def find_links_in_container(self, container):
+        """
+        Находит ссылки в тексте контейнера. Сохраняет текст ссылки и url
+        :param container: контейнер, в котором ищем ссылки
+        :return: список сылок
+        """
         link_objects = container.xpath('a')
         links = [{'text': i.text_content(), 'href': i.attrib['href']} for i in link_objects]
         return links
 
+# TODO разобраться почему идёт подсветка
     def find_headers(self):
+        """
+        Находит заголовок статьи
+        :return: заголовок статьи
+        """
+        # TODO исправить headers на header
         headers = {'tag': None, 'text': None, 'links': list()}
         header_obj = self.body.xpath('//h1')
         if len(header_obj) > 0:
@@ -155,7 +183,6 @@ class Page:
     def extract_content(self):
         """
         Извлекает из страницы основной контент.
-        :return: основной контент, разделённый на контейнеры.
         """
         self.tree.find_content_nodes()
         main_blocks = self.tree.find_main_blocks()
@@ -198,6 +225,9 @@ class Text:
             block['text'] += '\n'*(number_of_lines + 1)
 
     def decorate_links(self):
+        """
+        Декорирует ссылки: url вставляется в текст в квадратных скобках
+        """
         for block in self.text['text_blocks']:
             for link in block['links']:
                 start_text_index = block['text'].find(link['text'])
@@ -208,6 +238,10 @@ class Text:
                 block['text'] = '{0} [{1}] {2}'.format(pre, link['href'], aft)
 
     def check_file_name(self, file_name):
+        """
+        Проверяет имя файла на предмет запрещенных символов. Запрещенные символы убираются из названия.
+        :param file_name: имя файла для проверки
+        """
         forbidden_symbols = ['~', '#' '%', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '"', '|']
         for symbol in forbidden_symbols:
             if symbol in file_name:
@@ -215,10 +249,17 @@ class Text:
         return file_name
 
     def agregate_text(self):
+        """
+        Объединяет текст статьи, разбитый по блокам, в одну строку. Это нужно чтобы не проверять каждый блок на наличие
+        служебных символов.
+        """
         for i in self.text['text_blocks']:
             self.text['full_text'] += i['text']
 
     def save(self):
+        """
+        Сохраняет файл с текстом статьи на жестком диске
+        """
         dir_path = config['GENERAL']['result_dir']
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
@@ -235,6 +276,10 @@ class Text:
 
 
 def create_parser():
+    """
+    Создаёт парсер аргументов командной строки
+    :return: парсер аргументов командной строки
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', '-u')
     return parser
