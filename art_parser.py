@@ -30,10 +30,9 @@ config.read(os.path.join(cwd, 'config.ini'))
 content = {
     'text_blocks': list(),
     'title': None,
-    # 'text_includes_header': False,
     'full_text': ''}
 
-# TODO удалить все лишние комментарии
+
 class Tree:
     """
     Класс, моделирующий DOM-дерево страницы
@@ -82,11 +81,7 @@ class Tree:
             count_descendants = 0
             for i in block['node'].getiterator():
                 count_descendants += 1
-            # xpath = '//{0}[@class="{1}"]'.format(block['tag'], block['attrib']['class'])
-            # block['xpath'] = xpath
-            # node = self.body.xpath(xpath)[0]
             block['text_len'] = len(block['node'].text_content())
-            # block['text_len'] = len(node.text_content())
             block['count_descendants'] = count_descendants
             # ищем по ключевым словам класса
             for kw in class_keywords:
@@ -123,13 +118,10 @@ class Tree:
             if text_content is not None and tag in text_tags:
                 links = self.find_links_in_container(container)
                 content['text_blocks'].append({'tag': container.tag, 'text': container.text_content(), 'links': links})
-                # if container.tag == 'h1':
-                #     content['text_includes_header'] = True
             if tail is not None and len(tail) > 0:
                 links = self.find_links_in_container(block)
                 content['text_blocks'].append({'tag': 'root', 'text': tail, 'links': links})
         headers = self.find_headers()
-        # if content['text_includes_header'] is False and headers is not None:
         content['text_blocks'].insert(0, headers)
 
     def find_links_in_container(self, container):
@@ -234,7 +226,6 @@ class Text:
                 end_text_index = start_text_index + len(link['text'])
                 pre = block['text'][:end_text_index ]
                 aft = block['text'][end_text_index:]
-                # block['text'] = pre + '['link['href'] + aft
                 block['text'] = '{0} [{1}] {2}'.format(pre, link['href'], aft)
 
     def check_file_name(self, file_name):
