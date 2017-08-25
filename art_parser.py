@@ -30,7 +30,8 @@ config.read(os.path.join(cwd, 'config.ini'))
 content = {
     'text_blocks': list(),
     'title': None,
-    'full_text': ''}
+    'full_text': ''
+}
 
 
 class Tree:
@@ -121,7 +122,7 @@ class Tree:
             if tail is not None and len(tail) > 0:
                 links = self.find_links_in_container(block)
                 content['text_blocks'].append({'tag': 'root', 'text': tail, 'links': links})
-        headers = self.find_headers()
+        headers = self.find_headers(content)
         content['text_blocks'].insert(0, headers)
 
     def find_links_in_container(self, container):
@@ -134,10 +135,10 @@ class Tree:
         links = [{'text': i.text_content(), 'href': i.attrib['href']} for i in link_objects]
         return links
 
-# TODO разобраться почему идёт подсветка
-    def find_headers(self):
+    def find_headers(self, content):
         """
         Находит заголовок статьи
+        :param словарь, содержащий информацию о контенте страницы
         :return: заголовок статьи
         """
         # TODO исправить headers на header
