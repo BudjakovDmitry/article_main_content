@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
+
 """
 Программа представляет собой утилиту командной строки. Она принимает на вход URL, делает запрос по указанному адресу и
 извлекает со страницы основной контент.
 
 Пример вызова
 
-c:\users\user>python art_parser.py --url https://news.ru
+$ python art_parser.py --url https://news.ru
 
 или более короткий вариант
 
-c:\users\user>python art_parser.py -u https://news.ru
+$ python art_parser.py -u https://news.ru
 
-Результат сохраняется в текстовый файл.
+Результат сохраняется в текстовый файл. Текстовые файлы сохраняются на диск.
 Расположение папки, куда складываются результаты, указывается в файле config.ini. В этом файле достаточно указать
 желаемую папку. Если такой папки не существует, программа создаст её.
 """
@@ -26,6 +27,16 @@ text_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 config = ConfigParser()
 cwd = os.getcwd()
 config.read(os.path.join(cwd, 'config.ini'))
+
+
+def create_parser():
+    """
+    Создаёт парсер аргументов командной строки
+    :return: парсер аргументов командной строки
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--url', '-u')
+    return parser
 
 content = {
     'text_blocks': list(),
@@ -265,16 +276,6 @@ class Text:
                 except UnicodeEncodeError:
                     continue
 
-
-def create_parser():
-    """
-    Создаёт парсер аргументов командной строки
-    :return: парсер аргументов командной строки
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--url', '-u')
-    return parser
-"""
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
@@ -291,6 +292,7 @@ if __name__ == '__main__':
     else:
         print('Ошибка: Не задан обязательный аргумент --url')
 """
+# TODO после тестирования удалить это
 if __name__ == '__main__':
     page = Page()
     page.get('http://76.ru/text/news/335587114819584.html')
@@ -300,3 +302,4 @@ if __name__ == '__main__':
     text.set_line_width()
     text.add_margins()
     text.save()
+"""
