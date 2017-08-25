@@ -141,17 +141,16 @@ class Tree:
         :param словарь, содержащий информацию о контенте страницы
         :return: заголовок статьи
         """
-        # TODO исправить headers на header
-        headers = {'tag': None, 'text': None, 'links': list()}
+        header = {'tag': None, 'text': None, 'links': list()}
         header_obj = self.body.xpath('//h1')
         if len(header_obj) > 0:
             for block in content['text_blocks']:
                 if block['tag'] == 'h1' and block['text'] == header_obj[0].text_content():
                     break
                 else:
-                    headers['tag'] = header_obj[0].tag
-                    headers['text'] = header_obj[0].text_content().upper()
-        return headers
+                    header['tag'] = header_obj[0].tag
+                    header['text'] = header_obj[0].text_content().upper()
+        return header
 
 
 class Page:
