@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 https://rg.ru,
-https://www.gazeta.ru,
-https://lenta.ru
 """
 
 import requests
@@ -19,7 +17,7 @@ config.read(os.path.join(cwd, 'config.ini'))
 content = {
     'text_blocks': list(),
     'title': None,
-    'text_includes_header': False,
+    # 'text_includes_header': False,
     'full_text': ''}
 
 # TODO проверить описание всех методов и классов
@@ -62,22 +60,28 @@ class Tree:
         parent_blocks = list()
         main_blocks = list()
         class_keywords = ['article', 'body']
-        for b in self.content_blocks:
-            parent = b['node'].getparent()
-            parent_info = {'tag': parent.tag, 'attrib': parent.attrib}
-            if parent_info not in parent_blocks:
+        for bl in self.content_blocks:
+            parent = bl['node'].getparent()
+            parent_info = {'tag': parent.tag, 'attrib': parent.attrib, 'node': parent}
+            if parent_info not in parent_blocks and parent.tag != 'noscript':
                 parent_blocks.append(parent_info)
         for block in parent_blocks:
-            xpath = '//{0}[@class="{1}"]'.format(block['tag'], block['attrib']['class'])
-            block['xpath'] = xpath
-            node = self.body.xpath(xpath)[0]
-            block['text_len'] = len(node.text_content())
+            count_descendants = 0
+            for i in block['node'].getiterator():
+                count_descendants += 1
+            # xpath = '//{0}[@class="{1}"]'.format(block['tag'], block['attrib']['class'])
+            # block['xpath'] = xpath
+            # node = self.body.xpath(xpath)[0]
+            block['text_len'] = len(block['node'].text_content())
+            # block['text_len'] = len(node.text_content())
+            block['count_descendants'] = count_descendants
             # ищем по ключевым словам класса
             for kw in class_keywords:
                 if kw in block['attrib']['class'] and block not in main_blocks:
-                    main_blocks = (self.body.xpath(block['xpath']))
+                    main_blocks = [block['node']]
         if len(main_blocks) == 0:
-            parent_blocks.sort(key=lambda k: k['text_len'], reverse=True)
+            # отношение количества текста к количеству контейнеров
+            parent_blocks.sort(key=lambda k: k['text_len'] / k['count_descendants'], reverse=True)
             main_blocks = self.body.xpath(parent_blocks[0]['xpath'])
         return main_blocks
 
@@ -102,14 +106,14 @@ class Tree:
             if text_content is not None and tag in text_tags:
                 links = self.find_links_in_container(container)
                 content['text_blocks'].append({'tag': container.tag, 'text': container.text_content(), 'links': links})
-                if container.tag == 'h1':
-                    content['text_includes_header'] = True
+                # if container.tag == 'h1':
+                #     content['text_includes_header'] = True
             if tail is not None and len(tail) > 0:
                 links = self.find_links_in_container(block)
                 content['text_blocks'].append({'tag': 'root', 'text': tail, 'links': links})
         headers = self.find_headers()
-        if content['text_includes_header'] is False and headers is not None:
-            content['text_blocks'].insert(0, headers)
+        # if content['text_includes_header'] is False and headers is not None:
+        content['text_blocks'].insert(0, headers)
 
     def find_links_in_container(self, container):
         link_objects = container.xpath('a')
@@ -120,9 +124,13 @@ class Tree:
         headers = {'tag': None, 'text': None, 'links': list()}
         header_obj = self.body.xpath('//h1')
         if len(header_obj) > 0:
-            headers['tag'] = header_obj[0].tag
-            headers['text'] = header_obj[0].text_content().upper()
-            return headers
+            for block in content['text_blocks']:
+                if block['tag'] == 'h1' and block['text'] == header_obj[0].text_content():
+                    break
+                else:
+                    headers['tag'] = header_obj[0].tag
+                    headers['text'] = header_obj[0].text_content().upper()
+        return headers
 
 
 class Page:
@@ -200,7 +208,7 @@ class Text:
                 block['text'] = '{0} [{1}] {2}'.format(pre, link['href'], aft)
 
     def check_file_name(self, file_name):
-        forbidden_symbols = ['~', '#' '%', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '"']
+        forbidden_symbols = ['~', '#' '%', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '"', '|']
         for symbol in forbidden_symbols:
             if symbol in file_name:
                 file_name = file_name.replace(symbol, ' ')
@@ -230,7 +238,7 @@ def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', '-u')
     return parser
-
+"""
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
@@ -249,11 +257,10 @@ if __name__ == '__main__':
 """
 if __name__ == '__main__':
     page = Page()
-    page.get('http://tass.ru/mezhdunarodnaya-panorama/4506469')
+    page.get('http://76.ru/text/news/335587114819584.html')
     page.extract_content()
     text = Text(content)
     text.decorate_links()
     text.set_line_width()
     text.add_margins()
     text.save()
-"""
