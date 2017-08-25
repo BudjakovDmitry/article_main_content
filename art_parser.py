@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-https://ria.ru,
-http://tass.ru,
+,
 https://rg.ru,
 https://www.gazeta.ru,
 https://lenta.ru
@@ -18,7 +17,13 @@ config = ConfigParser()
 cwd = os.getcwd()
 config.read(os.path.join(cwd, 'config.ini'))
 
+content = {
+    'text_blocks': list(),
+    'title': None,
+    'text_includes_header': False,
+    'full_text': ''}
 
+# TODO проверить описание всех методов и классов
 class Tree:
     """
     Класс, моделирующий DOM-дерево страницы
@@ -30,6 +35,7 @@ class Tree:
         self.dom = dict()
         self.content_blocks = None
 
+    # TODO от этого метода наверное можно избаивться, так как есть готовые атрибуты head и body
     def get_body(self, html_text):
         """
         Создаёт экземпляр объекта body, моделирующий тело страницы.
@@ -76,43 +82,40 @@ class Tree:
             main_blocks = self.body.xpath(parent_blocks[0]['xpath'])
         return main_blocks
 
-    def find_main_text(self, main_blocks):
+    def get_art_title(self):
         """
-        Находит текстовые блоки внутри главного блока, который включаев всю статью
-        :param main_blocks: список блоков, в которых находится свтатья
-        :return: статья, разделённая по блокам
+        Метод берет заголовок статьи из контейнера <title>. В дальнейшем заголовок послужит именем файла.
         """
-        content = {
-            'text_blocks': list(),
-            'title': None,
-            'tags': list()
-        }
         title = self.head.xpath('//title')[0]
         content['title'] = title.text_content()
-        for block in main_blocks:
-            iterator = block.getiterator()
-            for item in iterator:
-                # try нужна для того чтобы исключить блоки с html-комментариями. Из-за них парсер падает.
-                try:
-                    text_content = item.text_content()
-                    tag = item.tag
-                except ValueError:
-                    continue
-                if text_content is not None and tag in text_tags:
-                    links = list()
-                    for child in item.getchildren():
-                        if child.tag == 'a':
-                            link = {
-                                'text': child.text_content(),
-                                'href': child.attrib['href']}
-                            links.append(link)
-                    content['text_blocks'].append({'tag': item.tag, 'text': item.text_content(), 'links': links})
-                    if item.tag not in content['tags']:
-                        content['tags'].append(item.tag)
+
+    def get_art_text(self, block):
+        for container in block.getchildren():
+            # try нужна для того чтобы исключить блоки с html-комментариями. Из-за них парсер падает.
+            try:
+                text_content = container.text_content()
+                tag = container.tag
+                tail = container.tail
+                if tail is not None:
+                    tail = tail.strip()
+            except ValueError:
+                continue
+            if text_content is not None and tag in text_tags:
+                links = self.find_links_in_container(container)
+                content['text_blocks'].append({'tag': container.tag, 'text': container.text_content(), 'links': links})
+                if container.tag == 'h1':
+                    content['text_includes_header'] = True
+            if tail is not None and len(tail) > 0:
+                links = self.find_links_in_container(block)
+                content['text_blocks'].append({'tag': 'root', 'text': tail, 'links': links})
         headers = self.find_headers()
-        if 'h1' not in content['tags'] and headers is not None:
+        if content['text_includes_header'] is False and headers is not None:
             content['text_blocks'].insert(0, headers)
-        return content
+
+    def find_links_in_container(self, container):
+        link_objects = container.xpath('a')
+        links = [{'text': i.text_content(), 'href': i.attrib['href']} for i in link_objects]
+        return links
 
     def find_headers(self):
         headers = {'tag': None, 'text': None, 'links': list()}
@@ -149,8 +152,9 @@ class Page:
         """
         self.tree.find_content_nodes()
         main_blocks = self.tree.find_main_blocks()
-        main_content = self.tree.find_main_text(main_blocks)
-        return main_content
+        for block in main_blocks:
+            self.tree.get_art_text(block)
+        self.tree.get_art_title()
 
 
 class Text:
@@ -196,23 +200,31 @@ class Text:
                 # block['text'] = pre + '['link['href'] + aft
                 block['text'] = '{0} [{1}] {2}'.format(pre, link['href'], aft)
 
-    def chec_file_name(self, file_name):
+    def check_file_name(self, file_name):
         forbidden_symbols = ['~', '#' '%', '*', '{', '}', '\\', ':', '<', '>', '?', '/', '"']
         for symbol in forbidden_symbols:
             if symbol in file_name:
                 file_name = file_name.replace(symbol, ' ')
         return file_name
 
+    def agregate_text(self):
+        for i in self.text['text_blocks']:
+            self.text['full_text'] += i['text']
+
     def save(self):
         dir_path = config['GENERAL']['result_dir']
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
-        name = self.chec_file_name(self.text['title'])
+        name = self.check_file_name(self.text['title'])
         file_name = '{0}.txt'.format(name)
         full_path = os.path.join(dir_path, file_name)
+        self.agregate_text()
         with open(full_path, 'w') as art:
-            for i in self.text['text_blocks']:
-                art.write(i['text'])
+            for i in self.text['full_text']:
+                try:
+                    art.write(i)
+                except UnicodeEncodeError:
+                    continue
 
 
 def create_parser():
@@ -227,7 +239,7 @@ if __name__ == '__main__':
     if url:
         page = Page()
         page.get(url)
-        content = page.extract_content()
+        page.extract_content()
         text = Text(content)
         text.decorate_links()
         text.set_line_width()
@@ -238,8 +250,8 @@ if __name__ == '__main__':
 """
 if __name__ == '__main__':
     page = Page()
-    page.get('https://ria.ru/world/20170825/1501052126.html')
-    content = page.extract_content()
+    page.get('http://tass.ru/mezhdunarodnaya-panorama/4506469')
+    page.extract_content()
     text = Text(content)
     text.decorate_links()
     text.set_line_width()
