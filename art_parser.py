@@ -75,7 +75,7 @@ class Tree:
         iterator = self.body.getiterator(node_name)
         self.content_blocks = [{'text': it.text_content(), 'node': it} for it in iterator if it.text_content()]
 
-    def find_main_blocks(self):
+    def find_main_block(self):
         """
         Находит родительские контейнеры для блоков с текстом статьи.
         Если родительских блоков несколько, то по размеру текста определяет, в каком блоке основной контент
@@ -84,8 +84,8 @@ class Tree:
         parent_blocks = list()
         main_blocks = list()
         class_keywords = ['article', 'body']
-        for bl in self.content_blocks:
-            parent = bl['node'].getparent()
+        for content_block in self.content_blocks:
+            parent = content_block['node'].getparent()
             parent_info = {'tag': parent.tag, 'attrib': parent.attrib, 'node': parent}
             if parent_info not in parent_blocks and parent.tag != 'noscript':
                 parent_blocks.append(parent_info)
@@ -95,14 +95,15 @@ class Tree:
                 count_descendants += 1
             block['text_len'] = len(block['node'].text_content())
             block['count_descendants'] = count_descendants
-            # ищем по ключевым словам класса
+            # основной блок ищем по ключевым словам класса
             for kw in class_keywords:
-                if kw in block['attrib']['class'] and block not in main_blocks:
-                    main_blocks = [block['node']]
+                if kw in block['attrib']['class'] and block['node'] not in main_blocks:
+                    main_blocks.append(block['node'])
+        # если не нашли по ключевым словам, то ищем по количеству вложенного текста
         if len(main_blocks) == 0:
             # отношение количества текста к количеству контейнеров
             parent_blocks.sort(key=lambda k: k['text_len'] / k['count_descendants'], reverse=True)
-            main_blocks = self.body.xpath(parent_blocks[0]['xpath'])
+            main_blocks.append(parent_blocks[0]['node'])
         return main_blocks
 
     def get_art_title(self):
@@ -134,7 +135,8 @@ class Tree:
                 links = self.find_links_in_container(block)
                 content['text_blocks'].append({'tag': 'root', 'text': tail, 'links': links})
         headers = self.find_headers(content)
-        content['text_blocks'].insert(0, headers)
+        if headers:
+            content['text_blocks'].insert(0, headers)
 
     def find_links_in_container(self, container):
         """
@@ -146,7 +148,7 @@ class Tree:
         links = [{'text': i.text_content(), 'href': i.attrib['href']} for i in link_objects]
         return links
 
-    def find_headers(self, content):
+    def find_headers(self, text_content):
         """
         Находит заголовок статьи
         :param словарь, содержащий информацию о контенте страницы
@@ -155,13 +157,12 @@ class Tree:
         header = {'tag': None, 'text': None, 'links': list()}
         header_obj = self.body.xpath('//h1')
         if len(header_obj) > 0:
-            for block in content['text_blocks']:
+            for block in text_content['text_blocks']:
                 if block['tag'] == 'h1' and block['text'] == header_obj[0].text_content():
-                    break
-                else:
-                    header['tag'] = header_obj[0].tag
-                    header['text'] = header_obj[0].text_content().upper()
-        return header
+                    return None
+            header['tag'] = header_obj[0].tag
+            header['text'] = header_obj[0].text_content()
+            return header
 
 
 class Page:
@@ -188,9 +189,9 @@ class Page:
         Извлекает из страницы основной контент.
         """
         self.tree.find_content_nodes()
-        main_blocks = self.tree.find_main_blocks()
-        for block in main_blocks:
-            self.tree.get_art_text(block)
+        main_blocks = self.tree.find_main_block()
+        for i in main_blocks:
+            self.tree.get_art_text(i)
         self.tree.get_art_title()
 
 
@@ -275,7 +276,7 @@ class Text:
                     art.write(i)
                 except UnicodeEncodeError:
                     continue
-
+"""
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
@@ -295,11 +296,10 @@ if __name__ == '__main__':
 # TODO после тестирования удалить это
 if __name__ == '__main__':
     page = Page()
-    page.get('http://76.ru/text/news/335587114819584.html')
+    page.get('https://ria.ru/world/20170825/1501052126.html')
     page.extract_content()
     text = Text(content)
     text.decorate_links()
     text.set_line_width()
     text.add_margins()
     text.save()
-"""
