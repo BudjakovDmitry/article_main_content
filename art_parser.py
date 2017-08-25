@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-,
 https://rg.ru,
 https://www.gazeta.ru,
 https://lenta.ru
@@ -76,7 +75,7 @@ class Tree:
             # ищем по ключевым словам класса
             for kw in class_keywords:
                 if kw in block['attrib']['class'] and block not in main_blocks:
-                    main_blocks = (self.body.xpath(parent_blocks[0]['xpath']))
+                    main_blocks = (self.body.xpath(block['xpath']))
         if len(main_blocks) == 0:
             parent_blocks.sort(key=lambda k: k['text_len'], reverse=True)
             main_blocks = self.body.xpath(parent_blocks[0]['xpath'])
@@ -231,7 +230,7 @@ def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--url', '-u')
     return parser
-"""
+
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
@@ -257,3 +256,4 @@ if __name__ == '__main__':
     text.set_line_width()
     text.add_margins()
     text.save()
+"""
